@@ -10,7 +10,7 @@ const db = mysql.createConnection({
   user: "root",
   password: "",
   host: "localhost",
-  database: "acculims",
+  database: "acculims2",
 });
 
 app.post("/lab_order", (req, res) => {
@@ -45,11 +45,17 @@ app.post("/lab_order", (req, res) => {
   lab_head.form_name as form_name,
   lab_head.lab_priority_id as priority,
   lab_head.lis_order_no as No,
-  lab_head.order_date as order_date_time,
-  lab_head.receive_date as time_receive_report,
+  concat(
+    DATE_FORMAT(lab_head.order_date, '%Y-%m-%d'), ' ',
+    lab_head.order_time)
+    AS order_date_time,
+ concat(
+    DATE_FORMAT(lab_head.receive_date, '%Y-%m-%d'), ' ',
+    lab_head.receive_time)
+    AS time_receive_report,
   lab_head.department as department
   FROM lab_head
-
+  LEFT JOIN lab_order ON lab_order.lab_order_number = lab_head.lab_order_number 
   ${cond} 
   AND lab_head.receive_status <> 'Delete'
   GROUP BY lab_head.lab_order_number`;

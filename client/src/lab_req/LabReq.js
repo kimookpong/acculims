@@ -12,18 +12,26 @@ import {
   DatePicker,
   Select,
   Checkbox,
+  Spin,
 } from "antd";
+import {
+  StopOutlined,
+  CheckCircleOutlined,
+  DeleteOutlined,
+  PrinterOutlined,
+} from "@ant-design/icons";
 import dayjs from "dayjs";
 import axios from "axios";
 import "./LabReq.css";
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
-const dateFormat = "YYYY-MM-DD";
+const dateFormat = "YYYY-MM-DD HH:mm";
 const currDate = dayjs();
-const beforeDate = currDate.subtract(6, "month");
+const beforeDate = currDate.subtract(5, "month");
 
 function LabReq() {
+  const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
   const [statusList, setStatusList] = useState("All");
   const [dataCount, setDataCount] = useState({
@@ -45,6 +53,8 @@ function LabReq() {
 
   const setStatusListonClick = (id) => {
     setStatusList(id);
+    // console.log(filteredData);
+    //setData(filteredData);
   };
 
   const inputSType = (event) => {
@@ -91,6 +101,7 @@ function LabReq() {
     //   .finally(function () {});
   };
   const loadData = async () => {
+    setLoading(true);
     const filter = {
       date_start: sStartDate,
       date_stop: sEndDate,
@@ -124,6 +135,7 @@ function LabReq() {
         });
         setDataCount(count);
         setData(dataArray);
+        setLoading(false);
       })
       .catch(function (error) {
         console.log(error);
@@ -163,12 +175,7 @@ function LabReq() {
       key: "priority",
     },
     {
-      title: "เลขที่สั่ง",
-      dataIndex: "No",
-      key: "No",
-    },
-    {
-      title: "วันเวาที่สั่ง",
+      title: "วันเวลาที่สั่ง",
       dataIndex: "order_date_time",
       key: "order_date_time",
     },
@@ -183,10 +190,14 @@ function LabReq() {
       key: "department",
     },
   ];
-
+  const [labDisable, setLabDisable] = useState(true);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const onSelectChange = (newSelectedRowKeys) => {
-    console.log("selectedRowKeys changed: ", newSelectedRowKeys);
+    if (newSelectedRowKeys.length > 0) {
+      setLabDisable(false);
+    } else {
+      setLabDisable(true);
+    }
     setSelectedRowKeys(newSelectedRowKeys);
   };
   const rowSelection = {
@@ -212,8 +223,11 @@ function LabReq() {
                   <Card>
                     <Row gutter={24}>
                       <Col span={10} style={{}}>
-                        <Form.Item label="วันที่ :">
+                        <Form.Item>
                           <RangePicker
+                            showTime={{
+                              format: "HH:mm",
+                            }}
                             value={[
                               dayjs(sStartDate, dateFormat),
                               dayjs(sEndDate, dateFormat),
@@ -297,7 +311,7 @@ function LabReq() {
                     <Col span={6}>
                       <Button
                         onClick={() => setStatusListonClick("All")}
-                        type={statusList === "All" ? "primary" : null}
+                        type={statusList === "All" ? "primary" : "default"}
                         block
                       >
                         All({dataCount["All"]})
@@ -306,7 +320,7 @@ function LabReq() {
                     <Col span={6}>
                       <Button
                         onClick={() => setStatusListonClick("Pending")}
-                        type={statusList === "Pending" ? "primary" : null}
+                        type={statusList === "Pending" ? "primary" : "default"}
                         block
                       >
                         Pending({dataCount["Pending"]})
@@ -315,7 +329,7 @@ function LabReq() {
                     <Col span={6}>
                       <Button
                         onClick={() => setStatusListonClick("Received")}
-                        type={statusList === "Received" ? "primary" : null}
+                        type={statusList === "Received" ? "primary" : "default"}
                         block
                       >
                         Received({dataCount["Received"]})
@@ -324,7 +338,7 @@ function LabReq() {
                     <Col span={6}>
                       <Button
                         onClick={() => setStatusListonClick("Reject")}
-                        type={statusList === "Reject" ? "primary" : null}
+                        type={statusList === "Reject" ? "primary" : "default"}
                         block
                       >
                         Reject({dataCount["Reject"]})
@@ -338,46 +352,118 @@ function LabReq() {
               </Row>
             </Content>
             <Content>
-              <Table
-                rowSelection={rowSelection}
-                columns={columns}
-                dataSource={data}
-                rowKey={"order_number"}
-                size="small"
-                onRow={(record, rowIndex) => {
-                  return {
-                    onClick: (event) => {
-                      loadDetail(record);
-                    }, // click row
-                  };
-                }}
-              />
+              <Spin spinning={loading} tip="กำลังโหลดข้อมูล" size="large">
+                <Table
+                  // loading={{ indicator: <div>loading...</div> }}
+                  rowSelection={rowSelection}
+                  columns={columns}
+                  dataSource={data.filter((d) => {
+                    if (statusList === "All") {
+                      return d;
+                    } else if (statusList === d["h_status"]) {
+                      return d;
+                    }
+                  })}
+                  rowKey={"order_number"}
+                  size="small"
+                  onRow={(record, rowIndex) => {
+                    return {
+                      onClick: (event) => {
+                        loadDetail(record);
+                      }, // click row
+                    };
+                  }}
+                />
+              </Spin>
             </Content>
             <Row>
               <Col span={24}>
                 <Card>
-                  <Row>
-                    <Col>
-                      <Card>
-                        <Button type="primary">รับใบ LAB</Button>
-                      </Card>
-                    </Col>
-                    <Col>
-                      <Card>
-                        <Button type="primary">ปฎิเสธ</Button>
-                      </Card>
-                    </Col>
-                    <Col>
-                      <Card>
-                        <Button type="primary">ลบ</Button>
-                      </Card>
-                    </Col>
-                    <Col>
-                      <Card>
-                        <Button type="primary">พิมพ์ Barcode</Button>
-                      </Card>
-                    </Col>
-                  </Row>
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ display: "inline-flex" }}>
+                      <div style={{ padding: 5 }}>
+                        <Button
+                          style={{
+                            padding: 10,
+                            cursor: "pointer",
+                            height: "auto",
+                            minWidth: 100,
+                          }}
+                          disabled={labDisable}
+                        >
+                          <div>
+                            <CheckCircleOutlined
+                              style={{
+                                fontSize: 40,
+                              }}
+                            />
+                          </div>
+                          <div>รับใบ LAB</div>
+                        </Button>
+                      </div>
+                      <div style={{ padding: 5 }}>
+                        <Button
+                          style={{
+                            padding: 10,
+                            cursor: "pointer",
+                            height: "auto",
+                            minWidth: 100,
+                          }}
+                          disabled={labDisable}
+                        >
+                          <div>
+                            <StopOutlined
+                              style={{
+                                fontSize: 40,
+                              }}
+                            />
+                          </div>
+                          <div>ปฎิเสธ</div>
+                        </Button>
+                      </div>
+                      <div style={{ padding: 5 }}>
+                        <Button
+                          danger
+                          style={{
+                            padding: 10,
+                            cursor: "pointer",
+                            height: "auto",
+                            minWidth: 100,
+                          }}
+                          disabled={labDisable}
+                        >
+                          <div>
+                            <DeleteOutlined
+                              style={{
+                                fontSize: 40,
+                              }}
+                            />
+                          </div>
+                          <div>ลบ</div>
+                        </Button>
+                      </div>
+                      <div style={{ padding: 5 }}>
+                        <Button
+                          style={{
+                            padding: 10,
+                            cursor: "pointer",
+                            height: "auto",
+                            minWidth: 100,
+                          }}
+                          disabled={labDisable}
+                        >
+                          <div>
+                            <PrinterOutlined
+                              style={{
+                                fontSize: 40,
+                              }}
+                            />
+                          </div>
+                          <div>พิมพ์ Barcode</div>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </Card>
               </Col>
             </Row>
