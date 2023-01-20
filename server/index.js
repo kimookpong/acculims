@@ -1,8 +1,8 @@
 const express = require("express");
-const app = express();
 const mysql = require("mysql");
 const cors = require("cors");
 
+const app = express();
 app.use(cors());
 app.use(express.json());
 
@@ -13,8 +13,8 @@ const db = mysql.createConnection({
   database: "acculims2",
 });
 
-app.get("/lab_order_detail/:id", (req, res) => {
-  const id = req.params.id;
+app.post("/lab_order_detail", (req, res) => {
+  const id = req.body.id;
   const query = `SELECT 
   lab_head.lab_order_number as order_number,
   lab_head.receive_status as h_status,
@@ -51,6 +51,33 @@ app.get("/lab_order_detail/:id", (req, res) => {
   });
 });
 
+app.post("/lab_barcode", (req, res) => {
+  const id = req.body.id;
+  if (id.length > 0) {
+    const query = `SELECT
+      lab_head.lab_order_number as order_number,
+      concat(patient.pname, '', patient.fname, ' ', patient.lname) AS patient_name,
+      lab_order.barcode as barcode,
+      concat(
+        DATE_FORMAT(lab_head.order_date, '%Y-%m-%d'), ' ',
+        DATE_FORMAT(lab_head.order_time,'%H:%i'))
+        AS order_date_time
+      FROM lab_head
+      LEFT JOIN lab_order ON lab_order.lab_order_number = lab_head.lab_order_number
+      LEFT JOIN patient ON lab_head.hn = patient.hn
+      WHERE lab_head.lab_order_number in  (${id.join()})
+      AND lab_head.receive_status <> 'Delete'
+      GROUP BY lab_head.lab_order_number`;
+    db.query(query, (err, result) => {
+      if (err) {
+        console.log(err);
+      } else {
+        res.send(result);
+      }
+    });
+  }
+});
+
 app.post("/lab_order", (req, res) => {
   const date_start = req.body.date_start;
   const date_stop = req.body.date_stop;
@@ -76,11 +103,13 @@ app.post("/lab_order", (req, res) => {
   if (text === null) {
   } else {
     if (type === 1) {
-      //cond = cond + ` AND barcode LIKE '%${text}%' `;
+      cond = cond + ` AND lab_order.barcode LIKE '%${text}%' `;
     } else if (type === 2) {
       cond = cond + ` AND lab_head.hn LIKE '%${text}%' `;
     } else if (type === 3) {
-      //cond = cond + ` AND name LIKE '%${text}%' `;
+      cond =
+        cond +
+        ` AND (patient.fname LIKE '%${text}%' OR patient.lname LIKE '%${text}%') `;
     }
   }
 
@@ -93,9 +122,14 @@ app.post("/lab_order", (req, res) => {
   lab_head.lab_order_number as order_number,
   lab_head.receive_status as h_status,
   lab_head.hn as HN,
-  lab_head.hn as patient_name,
+  concat(patient.pname, '', patient.fname, ' ', patient.lname) AS patient_name,
   lab_head.form_name as form_name,
-  lab_head.lab_priority_id as priority,
+  concat(
+    if(lab_head.lab_priority_id = 0, 'ปกติ', ''),
+    if(lab_head.lab_priority_id = 1, 'ปกติ', ''),
+    if(lab_head.lab_priority_id = 2, 'ด่วน', ''),
+    if(lab_head.lab_priority_id = 3, 'ด่วนที่สุด', ''))
+    AS priority,
   lab_head.lis_order_no as No,
   concat(
     DATE_FORMAT(lab_head.order_date, '%Y-%m-%d'), ' ',
@@ -108,9 +142,11 @@ app.post("/lab_order", (req, res) => {
   lab_head.department as department
   FROM lab_head
   LEFT JOIN lab_order ON lab_order.lab_order_number = lab_head.lab_order_number 
+  LEFT JOIN patient ON lab_head.hn = patient.hn
   ${cond} 
   AND lab_head.receive_status <> 'Delete'
   GROUP BY lab_head.lab_order_number`;
+
   db.query(query, (err, result) => {
     if (err) {
       console.log(err);
@@ -146,6 +182,19 @@ app.get("/lab_form_head", (req, res) => {
       res.send(result);
     }
   });
+});
+
+app.post("/action_event", (req, res) => {
+  const action = req.body.action;
+  let text = "";
+  if (action === "accept") {
+    text = "รับใบ LAB เรียบร้อยแล้ว";
+  } else if (action === "cancel") {
+    text = "ยกเลิกใบ LAB เรียบร้อยแล้ว";
+  } else if (action === "delete") {
+    text = "ลบใบ LAB เรียบร้อยแล้ว";
+  }
+  res.send({ result: true, alert: text });
 });
 
 app.listen("3001", () => {

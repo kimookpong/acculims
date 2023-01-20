@@ -1,4 +1,4 @@
-import { React, useEffect, useState } from "react";
+import { React, useEffect, useState, useRef } from "react";
 import thTH from "antd/locale/th_TH";
 import {
   ConfigProvider,
@@ -15,6 +15,8 @@ import {
   Select,
   Checkbox,
   Spin,
+  message,
+  Modal,
 } from "antd";
 import {
   StopOutlined,
@@ -24,16 +26,69 @@ import {
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import axios from "axios";
+import ReactToPrint from "react-to-print";
 import "./LabReq.css";
+import DetailComponent from "./DetailComponent";
+import DetailNoteComponent from "./DetailNoteComponent";
+import DetailThingComponent from "./DetailThingComponent";
+import BarcodeComponent from "./BarcodeComponent";
 
-dayjs.locale(thTH);
+const API_server = "http://localhost:3001";
+const API_post_list = API_server + "/lab_order";
+const API_post_detail = API_server + "/lab_order_detail";
+const API_post_barcode = API_server + "/lab_barcode";
+const API_get_lab_form_head = API_server + "/lab_form_head";
+const API_get_lab_items_group = API_server + "/lab_items_group";
+const API_post_action = API_server + "/action_event";
+
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
 const dateFormat = "YYYY-MM-DD HH:mm";
 const currDate = dayjs();
-const beforeDate = currDate.subtract(5, "month");
+const beforeDate = currDate.subtract(4, "month");
 
 function LabReq() {
+  const componentRef = useRef();
+
+  const [messageApi, messageContext] = message.useMessage();
+  const closeModal = () => {
+    Modal.destroyAll();
+  };
+  const showPrint = () => {
+    return axios
+      .post(API_post_barcode, {
+        id: selectedRowKeys,
+      })
+      .then(function (response) {
+        Modal.info({
+          centered: true,
+          width: 730,
+          title: "พิมพ์ Barcode",
+          icon: <PrinterOutlined />,
+          content: (
+            <div ref={componentRef}>
+              <BarcodeComponent data={response.data} />
+            </div>
+          ),
+          footer: (
+            <div className="ant-modal-footer">
+              <ReactToPrint
+                trigger={() => {
+                  return <Button key="back">พิมพ์</Button>;
+                }}
+                content={() => componentRef.current}
+              />
+              <Button key="submit" type="primary" onClick={closeModal}>
+                ตกลง
+              </Button>
+            </div>
+          ),
+        });
+      })
+      .catch(function (error) {
+        console.log(error);
+      });
+  };
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [data, setData] = useState([]);
@@ -61,18 +116,24 @@ function LabReq() {
   const getWorkTypeList = (id) => {
     if (id === 1) {
       return axios
-        .get("http://localhost:3001/lab_form_head")
+        .get(API_get_lab_form_head)
         .then(function (response) {
-          setSWorkTypeList(response.data);
+          setSWorkTypeList((oldArray) => [
+            { label: "All", value: "All" },
+            ...response.data,
+          ]);
         })
         .catch(function (error) {
           console.log(error);
         });
     } else if (id === 2) {
       return axios
-        .get("http://localhost:3001/lab_items_group")
+        .get(API_get_lab_items_group)
         .then(function (response) {
-          setSWorkTypeList(response.data);
+          setSWorkTypeList((oldArray) => [
+            { label: "All", value: "All" },
+            ...response.data,
+          ]);
         })
         .catch(function (error) {
           console.log(error);
@@ -81,112 +142,9 @@ function LabReq() {
   };
 
   const showDetail = (data) => {
-    console.log(data[0]);
-
-    setDetail(
-      <table style={{ width: "-webkit-fill-available" }}>
-        <tr>
-          <td colSpan={3}>-------------------------------------------</td>
-        </tr>
-
-        <tr>
-          <td>ประเภท</td>
-          <td>:</td>
-          <td>{data[0]["department"]}</td>
-        </tr>
-        <tr>
-          <td>Remark</td>
-          <td>:</td>
-          <td>{data[0]["remark"]}</td>
-        </tr>
-        <tr>
-          <td>Lab No</td>
-          <td>:</td>
-          <td>{data[0]["No"]}</td>
-        </tr>
-        <tr>
-          <td>HN</td>
-          <td>:</td>
-          <td>{data[0]["HN"]}</td>
-        </tr>
-        <tr>
-          <td>ชื่อ-สกุล</td>
-          <td>:</td>
-          <td>{data[0]["patient_name"]}</td>
-        </tr>
-        <tr>
-          <td>อายุ</td>
-          <td>:</td>
-          <td>content</td>
-        </tr>
-        <tr>
-          <td>เพศ</td>
-          <td>:</td>
-          <td>content</td>
-        </tr>
-        <tr>
-          <td>วันเดือนปีเกิด</td>
-          <td>:</td>
-          <td>content</td>
-        </tr>
-        <tr>
-          <td>ผู้ตรวจส่ง</td>
-          <td>:</td>
-          <td>{data[0]["patient_name"]}</td>
-        </tr>
-        <tr>
-          <td>Ward</td>
-          <td>:</td>
-          <td>{data[0]["ward"]}</td>
-        </tr>
-        <tr>
-          <td>วันที่ตรวจส่ง</td>
-          <td>:</td>
-          <td>{data[0]["approver_name"]}</td>
-        </tr>
-        <tr>
-          <td>เวลาที่ส่งตรวจ</td>
-          <td>:</td>
-          <td>{data[0]["approved_date"]}</td>
-        </tr>
-        <tr>
-          <td>ห้องที่ส่งตรวจ</td>
-          <td>:</td>
-          <td>{data[0]["approved_time"]}</td>
-        </tr>
-        <tr>
-          <td>สิทธิ์</td>
-          <td>:</td>
-          <td>content</td>
-        </tr>
-        <tr>
-          <td>ราคาที่ส่งตรวจ</td>
-          <td>:</td>
-          <td>content</td>
-        </tr>
-        <tr>
-          <td colSpan={3}>------------- [ TEST ORDER ] ---------------</td>
-        </tr>
-        <tr>
-          <td colSpan={3}>Lab Profile : </td>
-        </tr>
-        <tr>
-          <td colSpan={3}>1.fdsffedsfefef</td>
-        </tr>
-        <tr>
-          <td colSpan={3}>2.fdsffedsfefef</td>
-        </tr>
-        <tr>
-          <td colSpan={3}>Lab Single : </td>
-        </tr>
-        <tr>
-          <td colSpan={3}>1.fdsffedsfefef</td>
-        </tr>
-        <tr>
-          <td colSpan={3}>2.fdsffedsfefef</td>
-        </tr>
-      </table>
-    );
+    setDetail(<DetailComponent data={data[0]} />);
+    setDetailNote(<DetailNoteComponent data={data[0]} />);
+    setDetailThing(<DetailThingComponent data={data[0]} />);
     setLoadingData(false);
   };
 
@@ -224,10 +182,39 @@ function LabReq() {
     getWorkTypeList(sWork);
   }, [sStartDate, sEndDate, sType, sInput, sWorkType, sDepart, sAddress]);
 
+  const actionControl = async (action) => {
+    if (action === "print") {
+      console.log("print this");
+      showPrint();
+      setSelectedRowKeys([]);
+      setLabDisable(true);
+    } else {
+      return axios
+        .post(API_post_action, {
+          id: selectedRowKeys,
+          action: action,
+        })
+        .then(function (response) {
+          messageApi.open({
+            type: response.data.result === true ? "success" : "error",
+            content: response.data.alert,
+          });
+          setSelectedRowKeys([]);
+          setLabDisable(true);
+          loadData();
+        })
+        .catch(function (error) {
+          console.log(error);
+        });
+    }
+  };
+
   const loadDetail = async (dataDetail) => {
     setLoadingData(true);
     return axios
-      .get(`http://localhost:3001/lab_order_detail/${dataDetail.order_number}`)
+      .post(API_post_detail, {
+        id: dataDetail.order_number,
+      })
       .then(function (response) {
         showDetail(response.data);
       })
@@ -236,6 +223,9 @@ function LabReq() {
       });
   };
   const loadData = async () => {
+    setDetail(null);
+    setDetailNote(null);
+    setDetailThing(null);
     setLoading(true);
 
     const filter = {
@@ -252,7 +242,7 @@ function LabReq() {
 
     console.log(sWorkType);
     return await axios
-      .post("http://localhost:3001/lab_order", filter)
+      .post(API_post_list, filter)
       .then(function (response) {
         let dataArray = response.data;
 
@@ -375,6 +365,7 @@ function LabReq() {
   ];
   return (
     <ConfigProvider locale={thTH}>
+      {messageContext}
       <Layout style={{ background: "white" }}>
         <Content>
           <Row>
@@ -387,7 +378,7 @@ function LabReq() {
                   <Col span={20}>
                     <Card>
                       <Row gutter={24}>
-                        <Col>
+                        <Col span={10}>
                           <Form.Item style={{ marginBottom: 5, marginTop: 5 }}>
                             <RangePicker
                               block
@@ -557,6 +548,9 @@ function LabReq() {
                               height: "auto",
                               minWidth: 100,
                             }}
+                            onClick={() => {
+                              actionControl("accept");
+                            }}
                             disabled={labDisable}
                           >
                             <div>
@@ -576,6 +570,9 @@ function LabReq() {
                               cursor: "pointer",
                               height: "auto",
                               minWidth: 100,
+                            }}
+                            onClick={() => {
+                              actionControl("cancel");
                             }}
                             disabled={labDisable}
                           >
@@ -598,6 +595,9 @@ function LabReq() {
                               height: "auto",
                               minWidth: 100,
                             }}
+                            onClick={() => {
+                              actionControl("delete");
+                            }}
                             disabled={labDisable}
                           >
                             <div>
@@ -617,6 +617,9 @@ function LabReq() {
                               cursor: "pointer",
                               height: "auto",
                               minWidth: 100,
+                            }}
+                            onClick={() => {
+                              actionControl("print");
                             }}
                             disabled={labDisable}
                           >
