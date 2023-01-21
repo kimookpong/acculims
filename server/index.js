@@ -19,7 +19,7 @@ app.post("/lab_order_detail", (req, res) => {
   lab_head.lab_order_number as order_number,
   lab_head.receive_status as h_status,
   lab_head.hn as HN,
-  lab_head.hn as patient_name,
+  concat(patient.pname, '', patient.fname, ' ', patient.lname) AS patient_name,
   lab_head.approver_name as approver_name,
   lab_head.approved_date as approved_date,
   lab_head.approved_time as approved_time,
@@ -39,6 +39,7 @@ app.post("/lab_order_detail", (req, res) => {
   lab_head.department as department
   FROM lab_head
   LEFT JOIN lab_order ON lab_order.lab_order_number = lab_head.lab_order_number 
+  LEFT JOIN patient ON lab_head.hn = patient.hn
   WHERE lab_head.lab_order_number =  ${id} 
   AND lab_head.receive_status <> 'Delete'
   GROUP BY lab_head.lab_order_number`;

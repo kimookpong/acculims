@@ -17,6 +17,7 @@ import {
   Spin,
   message,
   Modal,
+  Affix,
 } from "antd";
 import {
   StopOutlined,
@@ -32,6 +33,7 @@ import DetailComponent from "./DetailComponent";
 import DetailNoteComponent from "./DetailNoteComponent";
 import DetailThingComponent from "./DetailThingComponent";
 import BarcodeComponent from "./BarcodeComponent";
+import CancelComponent from "./CancelComponent";
 
 const API_server = "http://localhost:3001";
 const API_post_list = API_server + "/lab_order";
@@ -49,10 +51,53 @@ const beforeDate = currDate.subtract(4, "month");
 
 function LabReq() {
   const componentRef = useRef();
-
+  const [refreshKey, setRefreshKey] = useState(0);
   const [messageApi, messageContext] = message.useMessage();
   const closeModal = () => {
     Modal.destroyAll();
+  };
+  const showConfirmDelete = (action) => {
+    return axios
+      .post(API_post_detail, {
+        id: selectedRowKeys.join(),
+      })
+      .then(function (response) {
+        Modal.confirm({
+          centered: true,
+          width: 730,
+          title: "ยืนยันปฎิเสธสิ่งส่งตรวจ",
+          content: <CancelComponent data={response.data} />,
+          onOk() {
+            actionControl(action);
+          },
+        });
+      });
+  };
+  let acceptPrintBarcode = false;
+  const changeAcceptPrintBarcode = (event) => {
+    acceptPrintBarcode = event.target.checked;
+    console.log(acceptPrintBarcode);
+  };
+  const showConfirm = (action) => {
+    Modal.confirm({
+      centered: true,
+      title: action === "accept" ? "ยืนยันรับใบ LAB?" : "ยืนยันลบใบ LAB?",
+      content: (
+        <Row>
+          <Col span={24}>เลขที่สั่ง : {selectedRowKeys.join()}</Col>
+          <Col span={24}>
+            {action === "accept" ? (
+              <Checkbox onClick={changeAcceptPrintBarcode}>
+                พิมพ์ Barcode
+              </Checkbox>
+            ) : null}
+          </Col>
+        </Row>
+      ),
+      onOk() {
+        actionControl(action);
+      },
+    });
   };
   const showPrint = () => {
     return axios
@@ -84,9 +129,6 @@ function LabReq() {
             </div>
           ),
         });
-      })
-      .catch(function (error) {
-        console.log(error);
       });
   };
   const [loading, setLoading] = useState(false);
@@ -115,31 +157,22 @@ function LabReq() {
 
   const getWorkTypeList = (id) => {
     if (id === 1) {
-      return axios
-        .get(API_get_lab_form_head)
-        .then(function (response) {
-          setSWorkTypeList((oldArray) => [
-            { label: "All", value: "All" },
-            ...response.data,
-          ]);
-        })
-        .catch(function (error) {
-          console.log(error);
-        });
+      return axios.get(API_get_lab_form_head).then(function (response) {
+        setSWorkTypeList((oldArray) => [
+          { label: "All", value: "All" },
+          ...response.data,
+        ]);
+      });
     } else if (id === 2) {
-      return axios
-        .get(API_get_lab_items_group)
-        .then(function (response) {
-          setSWorkTypeList((oldArray) => [
-            { label: "All", value: "All" },
-            ...response.data,
-          ]);
-        })
-        .catch(function (error) {
-          console.log(error);
-        });
+      return axios.get(API_get_lab_items_group).then(function (response) {
+        setSWorkTypeList((oldArray) => [
+          { label: "All", value: "All" },
+          ...response.data,
+        ]);
+      });
     }
   };
+  getWorkTypeList(sWork);
 
   const showDetail = (data) => {
     setDetail(<DetailComponent data={data[0]} />);
@@ -178,13 +211,61 @@ function LabReq() {
   };
 
   useEffect(() => {
+    const loadData = async () => {
+      setDetail(null);
+      setDetailNote(null);
+      setDetailThing(null);
+      setLoading(true);
+
+      const filter = {
+        date_start: sStartDate,
+        date_stop: sEndDate,
+        time_start: dayjs(sStartDate).format("HH:mm:ss"),
+        time_stop: dayjs(sEndDate).format("HH:mm:ss"),
+        department: sDepart,
+        address: sAddress,
+        type: sType,
+        text: sInput,
+        form_name: sWorkType,
+      };
+      return await axios.post(API_post_list, filter).then(function (response) {
+        let dataArray = response.data;
+        let count = {
+          All: 0,
+          Pending: 0,
+          Received: 0,
+          Reject: 0,
+        };
+        dataArray.forEach((d) => {
+          if (d["h_status"] === "Pending") {
+            count["Pending"] += 1;
+          } else if (d["h_status"] === "Received") {
+            count["Received"] += 1;
+          } else if (d["h_status"] === "Reject") {
+            count["Reject"] += 1;
+          }
+          count["All"] += 1;
+        });
+        setDataCount(count);
+        setData(dataArray);
+        setLoading(false);
+      });
+    };
+
     loadData();
-    getWorkTypeList(sWork);
-  }, [sStartDate, sEndDate, sType, sInput, sWorkType, sDepart, sAddress]);
+  }, [
+    refreshKey,
+    sStartDate,
+    sEndDate,
+    sType,
+    sInput,
+    sWorkType,
+    sDepart,
+    sAddress,
+  ]);
 
   const actionControl = async (action) => {
     if (action === "print") {
-      console.log("print this");
       showPrint();
       setSelectedRowKeys([]);
       setLabDisable(true);
@@ -199,12 +280,16 @@ function LabReq() {
             type: response.data.result === true ? "success" : "error",
             content: response.data.alert,
           });
+
+          if (acceptPrintBarcode) {
+            showPrint();
+          }
           setSelectedRowKeys([]);
           setLabDisable(true);
-          loadData();
-        })
-        .catch(function (error) {
-          console.log(error);
+          setRefreshKey((oldKey) => oldKey + 1);
+          //loadData();
+          //setAcceptPrintBarcode(false);
+          acceptPrintBarcode = false;
         });
     }
   };
@@ -217,65 +302,18 @@ function LabReq() {
       })
       .then(function (response) {
         showDetail(response.data);
-      })
-      .catch(function (error) {
-        console.log(error);
       });
   };
-  const loadData = async () => {
-    setDetail(null);
-    setDetailNote(null);
-    setDetailThing(null);
-    setLoading(true);
 
-    const filter = {
-      date_start: sStartDate,
-      date_stop: sEndDate,
-      time_start: dayjs(sStartDate).format("HH:mm:ss"),
-      time_stop: dayjs(sEndDate).format("HH:mm:ss"),
-      department: sDepart,
-      address: sAddress,
-      type: sType,
-      text: sInput,
-      form_name: sWorkType,
-    };
-
-    console.log(sWorkType);
-    return await axios
-      .post(API_post_list, filter)
-      .then(function (response) {
-        let dataArray = response.data;
-
-        let count = {
-          All: 0,
-          Pending: 0,
-          Received: 0,
-          Reject: 0,
-        };
-
-        dataArray.forEach((d) => {
-          if (d["h_status"] === "Pending") {
-            count["Pending"] += 1;
-          } else if (d["h_status"] === "Received") {
-            count["Received"] += 1;
-          } else if (d["h_status"] === "Reject") {
-            count["Reject"] += 1;
-          }
-          count["All"] += 1;
-        });
-        setDataCount(count);
-        setData(dataArray);
-        setLoading(false);
-      })
-      .catch(function (error) {
-        console.log(error);
-      });
-  };
   const columns = [
     {
       title: "เลขที่สั่ง",
       dataIndex: "order_number",
       key: "order_number",
+      sorter: {
+        compare: (a, b) => a.order_number - b.order_number,
+        multiple: 1,
+      },
     },
     {
       title: "Status",
@@ -369,7 +407,7 @@ function LabReq() {
       <Layout style={{ background: "white" }}>
         <Content>
           <Row>
-            <Col span={18}>
+            <Col xs={24} xl={18}>
               <Content>
                 <Row>
                   <Col span={4} className="iconMenu">
@@ -425,6 +463,7 @@ function LabReq() {
                         <Col>
                           <Form.Item style={{ marginBottom: 5, marginTop: 5 }}>
                             <Select
+                              showSearch
                               onChange={inputSWorkType}
                               value={sWorkType}
                               style={{
@@ -513,7 +552,6 @@ function LabReq() {
               <Content>
                 <Spin spinning={loading} tip="กำลังโหลดข้อมูล" size="large">
                   <Table
-                    // loading={{ indicator: <div>loading...</div> }}
                     rowSelection={rowSelection}
                     columns={columns}
                     dataSource={data.filter((d) => {
@@ -522,9 +560,14 @@ function LabReq() {
                       } else if (statusList === d["h_status"]) {
                         return d;
                       }
+                      return false;
                     })}
                     rowKey={"order_number"}
                     size="small"
+                    scroll={{
+                      x: 1300,
+                    }}
+                    sticky
                     onRow={(record, rowIndex) => {
                       return {
                         onClick: (event) => {
@@ -549,7 +592,7 @@ function LabReq() {
                               minWidth: 100,
                             }}
                             onClick={() => {
-                              actionControl("accept");
+                              showConfirm("accept");
                             }}
                             disabled={labDisable}
                           >
@@ -572,9 +615,11 @@ function LabReq() {
                               minWidth: 100,
                             }}
                             onClick={() => {
-                              actionControl("cancel");
+                              showConfirmDelete("cancel");
                             }}
-                            disabled={labDisable}
+                            disabled={
+                              selectedRowKeys.length === 1 ? false : true
+                            }
                           >
                             <div>
                               <StopOutlined
@@ -596,7 +641,7 @@ function LabReq() {
                               minWidth: 100,
                             }}
                             onClick={() => {
-                              actionControl("delete");
+                              showConfirm("delete");
                             }}
                             disabled={labDisable}
                           >
@@ -630,7 +675,7 @@ function LabReq() {
                                 }}
                               />
                             </div>
-                            <div>พิมพ์ Barcode</div>
+                            <div>พิมพ์ Barcode ซ้ำ</div>
                           </Button>
                         </div>
                       </div>
@@ -639,7 +684,7 @@ function LabReq() {
                 </Col>
               </Row>
             </Col>
-            <Col span={6}>
+            <Col xs={24} xl={6}>
               <Spin spinning={loadingData} tip="กำลังโหลดข้อมูล" size="large">
                 <Content>
                   <Card title="รายละเอียด Lab Order">{detail}</Card>
