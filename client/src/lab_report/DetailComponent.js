@@ -4,10 +4,6 @@ const DetailComponent = (props) => {
     <table style={{ width: "-webkit-fill-available" }}>
       <tbody>
         <tr>
-          <td colSpan={3}>-------------------------------------------</td>
-        </tr>
-
-        <tr>
           <td>ประเภท</td>
           <td>:</td>
           <td>{data["department"]}</td>

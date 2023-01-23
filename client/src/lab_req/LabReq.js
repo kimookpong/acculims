@@ -17,8 +17,8 @@ import {
   Spin,
   message,
   Modal,
-  Affix,
 } from "antd";
+import StickyBox from "react-sticky-box";
 import {
   StopOutlined,
   CheckCircleOutlined,
@@ -38,10 +38,12 @@ import CancelComponent from "./CancelComponent";
 const API_server = "http://localhost:3001";
 const API_post_list = API_server + "/lab_order";
 const API_post_detail = API_server + "/lab_order_detail";
+
 const API_post_barcode = API_server + "/lab_barcode";
 const API_get_lab_form_head = API_server + "/lab_form_head";
 const API_get_lab_items_group = API_server + "/lab_items_group";
 const API_post_action = API_server + "/action_event";
+const API_post_cancel_reason = API_server + "/action_calcel_reason";
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -52,6 +54,10 @@ const beforeDate = currDate.subtract(4, "month");
 function LabReq() {
   const componentRef = useRef();
   const [refreshKey, setRefreshKey] = useState(0);
+  let dataRejectReason = [];
+  const onAddRejectForm = (newItem) => {
+    dataRejectReason = newItem;
+  };
   const [messageApi, messageContext] = message.useMessage();
   const closeModal = () => {
     Modal.destroyAll();
@@ -64,11 +70,23 @@ function LabReq() {
       .then(function (response) {
         Modal.confirm({
           centered: true,
-          width: 730,
+          width: 700,
           title: "ยืนยันปฎิเสธสิ่งส่งตรวจ",
-          content: <CancelComponent data={response.data} />,
+          content: (
+            <CancelComponent
+              data={response.data}
+              rejectForm={onAddRejectForm}
+            />
+          ),
           onOk() {
-            actionControl(action);
+            axios
+              .post(API_post_cancel_reason, {
+                id: selectedRowKeys.join(),
+                form: dataRejectReason,
+              })
+              .then(function (response) {
+                actionControl(action);
+              });
           },
         });
       });
@@ -329,11 +347,13 @@ function LabReq() {
       title: "ชื่อผู้ป่วย",
       dataIndex: "patient_name",
       key: "patient_name",
+      ellipsis: true,
     },
     {
       title: "ชื่อใบสั่ง",
       dataIndex: "form_name",
       key: "form_name",
+      ellipsis: true,
     },
     {
       title: "ความเร่งด่วน",
@@ -344,11 +364,13 @@ function LabReq() {
       title: "วันเวลาที่สั่ง",
       dataIndex: "order_date_time",
       key: "order_date_time",
+      ellipsis: true,
     },
     {
       title: "วันเวลาที่รับ",
       dataIndex: "time_receive_report",
       key: "time_receive_report",
+      ellipsis: true,
     },
     {
       title: "ห้องที่ส่งตรวจ",
@@ -407,13 +429,13 @@ function LabReq() {
       <Layout style={{ background: "white" }}>
         <Content>
           <Row>
-            <Col xs={24} xl={18}>
+            <Col xs={24} lg={18}>
               <Content>
                 <Row>
-                  <Col span={4} className="iconMenu">
+                  <Col xs={24} lg={4} className="iconMenu">
                     <h1>ใบรับ LAB</h1>
                   </Col>
-                  <Col span={20}>
+                  <Col xs={24} lg={20}>
                     <Card>
                       <Row gutter={24}>
                         <Col span={10}>
@@ -615,7 +637,7 @@ function LabReq() {
                               minWidth: 100,
                             }}
                             onClick={() => {
-                              showConfirmDelete("cancel");
+                              showConfirmDelete("reject");
                             }}
                             disabled={
                               selectedRowKeys.length === 1 ? false : true
@@ -684,14 +706,16 @@ function LabReq() {
                 </Col>
               </Row>
             </Col>
-            <Col xs={24} xl={6}>
-              <Spin spinning={loadingData} tip="กำลังโหลดข้อมูล" size="large">
-                <Content>
-                  <Card title="รายละเอียด Lab Order">{detail}</Card>
-                  <Card title="Lab Note">{detailNote}</Card>
-                  <Card title="ประเภทสิ่งส่งตรวจ">{detailThing}</Card>
-                </Content>
-              </Spin>
+            <Col xs={24} lg={6}>
+              <StickyBox>
+                <Spin spinning={loadingData} tip="กำลังโหลดข้อมูล" size="large">
+                  <Content>
+                    <Card title="รายละเอียด Lab Order">{detail}</Card>
+                    <Card title="Lab Note">{detailNote}</Card>
+                    <Card title="ประเภทสิ่งส่งตรวจ">{detailThing}</Card>
+                  </Content>
+                </Spin>
+              </StickyBox>
             </Col>
           </Row>
         </Content>
