@@ -1,15 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import { Input } from "antd";
 const { TextArea } = Input;
 const DetailNoteComponent = (props) => {
-  const { data } = props;
-  const [note, setNote] = useState(data["order_note"]);
+  const { data, api } = props;
+  let noteCheck = data["order_note"];
+  const [note, setNote] = useState(noteCheck);
   const inputNote = (event) => {
-    console.log(event.target.value);
     setNote(event.target.value);
   };
-  const commitNote = () => {
-    console.log("send data of " + data["lab_order_number"] + " : " + note);
+  useEffect(() => {
+    setNote(noteCheck);
+  }, [noteCheck]);
+  const commitNote = (event) => {
+    return axios.post(api, {
+      id: data["lab_order_number"],
+      note: note,
+    });
   };
   return (
     <table style={{ width: "-webkit-fill-available" }}>

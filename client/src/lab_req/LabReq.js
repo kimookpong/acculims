@@ -44,6 +44,7 @@ const API_get_lab_form_head = API_server + "/lab_form_head";
 const API_get_lab_items_group = API_server + "/lab_items_group";
 const API_post_action = API_server + "/action_event";
 const API_post_cancel_reason = API_server + "/action_calcel_reason";
+const API_post_note = API_server + "/lab_order_note";
 
 const { Content } = Layout;
 const { RangePicker } = DatePicker;
@@ -194,7 +195,7 @@ function LabReq() {
 
   const showDetail = (data) => {
     setDetail(<DetailComponent data={data[0]} />);
-    setDetailNote(<DetailNoteComponent data={data[0]} />);
+    setDetailNote(<DetailNoteComponent data={data[0]} api={API_post_note} />);
     setDetailThing(<DetailThingComponent data={data[0]} />);
     setLoadingData(false);
   };

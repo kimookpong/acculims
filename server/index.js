@@ -303,6 +303,19 @@ app.post("/action_event", (req, res) => {
   });
 });
 
+app.post("/lab_order_note", (req, res) => {
+  const id = req.body.id;
+  const note = req.body.note;
+  let query = `UPDATE lab_head SET order_note = '${note}' WHERE lab_order_number = (${id})`;
+  db.query(query, (err, result) => {
+    if (err) {
+      console.log(err);
+    } else {
+      res.send({ result: true });
+    }
+  });
+});
+
 app.post("/action_calcel_reason", (req, res) => {
   const id = req.body.id;
   const form_reasonCheck = req.body.form.reasonCheck;

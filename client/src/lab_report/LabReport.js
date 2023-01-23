@@ -398,10 +398,6 @@ function LabReport() {
       title: "Test Name",
       dataIndex: "lab_items_name",
       key: "lab_items_name",
-      sorter: {
-        compare: (a, b) => a.order_number - b.order_number,
-        multiple: 1,
-      },
     },
     {
       title: "ผลตรวจเครื่อง",
@@ -772,22 +768,12 @@ function LabReport() {
                   <Col span={24}>
                     <Spin spinning={loading} tip="กำลังโหลดข้อมูล" size="large">
                       <Table
-                        // rowSelection={rowSelectionReport}
                         columns={columnsReport}
                         dataSource={dataReport}
                         rowKey={"lab_items_name"}
                         size="small"
-                        // scroll={{
-                        //   x: 1300,
-                        // }}
-                        sticky
-                        onRow={(record, rowIndex) => {
-                          return {
-                            onClick: (event) => {
-                              //loadDetail(record);
-                            }, // click row
-                          };
-                        }}
+                        //sticky
+                        pagination={false}
                       />
                     </Spin>
                   </Col>
